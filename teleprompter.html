@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teleprompter Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.07);
+    --accent: #e8d5a3;
+    --accent2: #7c6fff;
+    --text: #f0ede6;
+    --muted: rgba(240,237,230,0.35);
+    --red: #ff5f5f;
+    --green: #5fff9a;
+    --radius: 12px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--accent); white-space: nowrap; }
+  .logo em { color: var(--muted); font-size: 0.85rem; }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  /* MODE TABS */
+  .mode-tabs { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+  .mode-tab { padding: 5px 13px; border-radius: 6px; border: none; background: transparent; color: var(--muted); font-family: 'Outfit', sans-serif; font-size: 0.76rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .mode-tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+  /* SLIDERS */
+  .ctrl-group { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); }
+  .ctrl-group label { white-space: nowrap; }
+  input[type="range"] { -webkit-appearance: none; width: 80px; height: 3px; background: var(--border); border-radius: 2px; outline: none; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .ctrl-val { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--accent); min-width: 26px; text-align: right; }
+
+  /* BUTTONS */
+  .icon-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; transition: all 0.15s; }
+  .icon-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+  .btn { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .btn-start { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
+  .btn-start:hover { background: #f5e4b8; }
+  .btn-stop { background: transparent; color: var(--red); border-color: var(--red); }
+  .btn-stop:hover { background: rgba(255,95,95,0.1); }
+  .btn-reset { background: transparent; color: var(--muted); }
+  .btn-reset:hover { color: var(--text); }
+  .btn-edit { background: transparent; color: var(--accent2); border-color: var(--accent2); }
+  .btn-edit:hover { background: rgba(124,111,255,0.1); }
+  .btn-save { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
+  .btn-save:hover { background: #f5e4b8; }
+
+  /* STATUS BAR */
+  .status-bar { display: flex; align-items: center; gap: 10px; padding: 6px 20px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.72rem; flex-shrink: 0; flex-wrap: wrap; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
+  .status-dot.listening { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.5s infinite; }
+  .status-dot.scrolling { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.done { background: var(--green); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-text { color: var(--muted); }
+  .waveform { display: flex; align-items: center; gap: 2px; height: 14px; }
+  .wave-bar { width: 2px; background: var(--green); border-radius: 1px; height: 3px; opacity: 0.4; }
+  .wave-active .wave-bar { opacity: 1; animation: wv 0.6s infinite ease-in-out; }
+  .wave-bar:nth-child(2) { animation-delay: 0.1s !important; }
+  .wave-bar:nth-child(3) { animation-delay: 0.2s !important; }
+  .wave-bar:nth-child(4) { animation-delay: 0.1s !important; }
+  @keyframes wv { 0%,100%{height:3px} 50%{height:13px} }
+  .heard-text { font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; color: var(--accent2); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .progress-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .prog-bg { width: 90px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.4s; }
+  .prog-pct { font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; color: var(--muted); min-width: 30px; }
+
+  /* MAIN */
+  main { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+
+  .focus-line { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, var(--accent) 25%, var(--accent) 75%, transparent); opacity: 0; pointer-events: none; z-index: 20; transition: opacity 0.4s; top: 42%; }
+  .focus-line.show { opacity: 0.45; }
+
+  .fade-top, .fade-bot { position: absolute; left: 0; right: 0; height: 100px; pointer-events: none; z-index: 10; }
+  .fade-top { top: 0; background: linear-gradient(to bottom, var(--bg), transparent); }
+  .fade-bot { bottom: 0; background: linear-gradient(to top, var(--bg), transparent); }
+
+  /* NO smooth scroll — JS controls exact scrollTop */
+  .scroll-wrap { flex: 1; overflow-y: scroll; overflow-x: hidden; min-height: 0; }
+  .scroll-wrap::-webkit-scrollbar { display: none; }
+
+  .script-area { padding: 50vh 10vw; max-width: 960px; margin: 0 auto; width: 100%; }
+
+  .script-content { font-family: 'DM Serif Display', serif; font-size: 2.2rem; line-height: 1.8; text-align: center; white-space: pre-wrap; }
+
+  /* Word states */
+  .w { display: inline; }
+  .w.spoken  { color: var(--muted); }
+  .w.current { color: var(--accent); text-shadow: 0 0 30px rgba(232,213,163,0.5); }
+  .w.upcoming{ color: var(--text); }
+
+  /* EDITOR */
+  .editor-overlay { position: absolute; inset: 0; background: var(--bg); z-index: 50; flex-direction: column; padding: 20px; gap: 14px; display: none; }
+  .editor-overlay.open { display: flex; }
+  .editor-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--accent); }
+  .editor-ta { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: 'Outfit', sans-serif; font-size: 1rem; line-height: 1.7; padding: 18px; resize: none; outline: none; }
+  .editor-ta:focus { border-color: rgba(255,255,255,0.18); }
+  .editor-acts { display: flex; gap: 10px; justify-content: flex-end; }
+
+  .mirrored .script-content { transform: scaleX(-1); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Teleprompter <em>Pro</em></div>
+  <div class="controls">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabSpeech" onclick="setMode('speech')">🎙 Suara</button>
+      <button class="mode-tab" id="tabFixed" onclick="setMode('fixed')">⏩ Kecepatan Tetap</button>
+    </div>
+    <div class="ctrl-group" id="speedGroup" style="display:none">
+      <label>Kecepatan</label>
+      <input type="range" id="speedSlider" min="10" max="250" value="60" oninput="onSpeedChange()">
+      <span class="ctrl-val" id="speedVal">60</span>
+    </div>
+    <div class="ctrl-group" id="sensGroup">
+      <label>Sensitivitas</label>
+      <input type="range" id="sensSlider" min="1" max="10" value="5" oninput="onSensChange()">
+      <span class="ctrl-val" id="sensVal">5</span>
+    </div>
+    <div style="display:flex;gap:5px;align-items:center">
+      <button class="icon-btn" onclick="changeFontSize(-1)">A−</button>
+      <button class="icon-btn" onclick="changeFontSize(1)">A+</button>
+      <button class="icon-btn" onclick="toggleMirror()" title="Mirror">⟺</button>
+    </div>
+    <button class="btn btn-edit" onclick="openEditor()">✏ Edit</button>
+    <button class="btn btn-reset" onclick="doReset()">↩ Reset</button>
+    <button class="btn btn-start" id="btnStart" onclick="doStart()">▶ Mulai</button>
+    <button class="btn btn-stop"  id="btnStop"  onclick="doStop()"  style="display:none">■ Stop</button>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-dot" id="dot"></div>
+  <div class="status-text" id="statusTxt">Siap — tekan Mulai</div>
+  <div class="waveform" id="waveform">
+    <div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div><div class="wave-bar"></div>
+  </div>
+  <div class="heard-text" id="heardTxt"></div>
+  <div class="progress-wrap">
+    <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-pct" id="progPct">0%</div>
+  </div>
+</div>
+
+<main id="mainArea">
+  <div class="fade-top"></div>
+  <div class="fade-bot"></div>
+  <div class="focus-line" id="focusLine"></div>
+  <div class="scroll-wrap" id="scrollWrap">
+    <div class="script-area">
+      <div class="script-content" id="scriptEl"></div>
+    </div>
+  </div>
+  <div class="editor-overlay" id="editorEl">
+    <div class="editor-title">✏ Edit Naskah</div>
+    <textarea class="editor-ta" id="editorTa"></textarea>
+    <div class="editor-acts">
+      <button class="btn btn-stop" onclick="closeEditor()">Batal</button>
+      <button class="btn btn-save" onclick="saveScript()">Simpan</button>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+const DEMO = `Selamat datang di Teleprompter Pro.
+
+Ini adalah naskah contoh yang bisa kamu ganti dengan teks apapun melalui tombol Edit di pojok kanan atas.
+
+Teleprompter ini memiliki dua mode gulir. Mode Suara akan mendeteksi kata-kata yang kamu ucapkan dan secara otomatis menggeser naskah mengikuti ucapanmu. Mode Kecepatan Tetap akan menggulir teks secara otomatis dengan kecepatan yang bisa kamu atur sendiri.
+
+Kamu juga dapat memperbesar atau memperkecil ukuran teks, serta menggunakan mode cermin untuk keperluan teleprompter fisik.
+
+Tekan tombol Mulai untuk memulai. Selamat berbicara!`;
+
+// STATE
+let scriptRaw   = DEMO;
+let wordTokens  = [];
+let curIdx      = 0;
+let mode        = 'speech';
+let running     = false;
+let fontSize    = 2.2;
+let isMirrored  = false;
+let rafId       = null;
+let recog       = null;
+let speedPx     = 60;
+let sensitivity = 5;
+
+// INIT
+renderScript();
+
+// RENDER
+function renderScript() {
+  const el     = document.getElementById('scriptEl');
+  const tokens = scriptRaw.split(/(\s+)/);
+  wordTokens   = [];
+  let html     = '';
+  let wi       = 0;
+
+  tokens.forEach(tok => {
+    if (/\S/.test(tok)) {
+      html += '<span class="w upcoming" id="w' + wi + '">' + esc(tok) + '</span>';
+      wordTokens.push(tok);
+      wi++;
+    } else {
+      html += tok;
+    }
+  });
+
+  el.innerHTML = html;
+  curIdx       = 0;
+  updateProgress();
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// MODE
+function setMode(m) {
+  if (running) doStop();
+  mode = m;
+  document.getElementById('tabSpeech').classList.toggle('active', m === 'speech');
+  document.getElementById('tabFixed').classList.toggle('active', m === 'fixed');
+  document.getElementById('speedGroup').style.display = m === 'fixed' ? 'flex' : 'none';
+  document.getElementById('sensGroup').style.display  = m === 'speech' ? 'flex' : 'none';
+}
+
+function onSpeedChange() {
+  speedPx = parseInt(document.getElementById('speedSlider').value);
+  document.getElementById('speedVal').textContent = speedPx;
+}
+function onSensChange() {
+  sensitivity = parseInt(document.getElementById('sensSlider').value);
+  document.getElementById('sensVal').textContent = sensitivity;
+}
+
+// FONT / MIRROR
+function changeFontSize(d) {
+  fontSize = Math.max(0.8, Math.min(5, fontSize + d * 0.2));
+  document.getElementById('scriptEl').style.fontSize = fontSize + 'rem';
+}
+function toggleMirror() {
+  isMirrored = !isMirrored;
+  document.getElementById('mainArea').classList.toggle('mirrored', isMirrored);
+}
+
+// EDITOR
+function openEditor() {
+  if (running) doStop();
+  document.getElementById('editorTa').value = scriptRaw;
+  document.getElementById('editorEl').classList.add('open');
+}
+function closeEditor() {
+  document.getElementById('editorEl').classList.remove('open');
+}
+function saveScript() {
+  const v = document.getElementById('editorTa').value.trim();
+  scriptRaw = v || DEMO;
+  renderScript();
+  closeEditor();
+  doReset();
+}
+
+// RESET
+function doReset() {
+  if (running) doStop();
+  curIdx = 0;
+  document.getElementById('scrollWrap').scrollTop = 0;
+  highlightAll();
+  updateProgress();
+  setStatus('Siap — tekan Mulai');
+  setDot('idle');
+}
+
+// START / STOP
+function doStart() {
+  running = true;
+  document.getElementById('btnStart').style.display = 'none';
+  document.getElementById('btnStop').style.display  = '';
+  document.getElementById('focusLine').classList.add('show');
+  if (mode === 'fixed') startFixed();
+  else startSpeech();
+}
+
+function doStop() {
+  running = false;
+  document.getElementById('btnStart').style.display = '';
+  document.getElementById('btnStop').style.display  = 'none';
+  document.getElementById('focusLine').classList.remove('show');
+
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (recog)  { try { recog.stop(); } catch(e){} recog = null; }
+
+  document.getElementById('waveform').classList.remove('wave-active');
+  document.getElementById('heardTxt').textContent = '';
+  setDot('idle');
+  setStatus('Berhenti');
+}
+
+// FIXED SCROLL
+function startFixed() {
+  setDot('scrolling');
+  setStatus('Menggulir…');
+  const wrap = document.getElementById('scrollWrap');
+  let last = null;
+
+  function tick(ts) {
+    if (!running) return;
+    if (last === null) last = ts;
+    const dt = Math.min((ts - last) / 1000, 0.05);
+    last = ts;
+
+    wrap.scrollTop += speedPx * dt;
+    syncHighlightToScroll();
+    updateProgress();
+
+    if (wrap.scrollTop >= wrap.scrollHeight - wrap.clientHeight - 2) {
+      doStop();
+      setDot('done');
+      setStatus('Selesai ✓');
+      return;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
+}
+
+function syncHighlightToScroll() {
+  const wrap    = document.getElementById('scrollWrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  // target: 42% down the visible area
+  const targetY = wrapRect.top + wrap.clientHeight * 0.42;
+
+  const from = Math.max(0, curIdx - 3);
+  const to   = Math.min(wordTokens.length - 1, curIdx + 40);
+  let bestIdx  = curIdx;
+  let bestDist = Infinity;
+
+  for (let i = from; i <= to; i++) {
+    const el = document.getElementById('w' + i);
+    if (!el) continue;
+    const r    = el.getBoundingClientRect();
+    const mid  = r.top + r.height / 2;
+    const dist = Math.abs(mid - targetY);
+    if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+  }
+
+  if (bestIdx !== curIdx) {
+    curIdx = bestIdx;
+    highlightAll();
+  }
+}
+
+// SPEECH SCROLL
+function startSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    alert('Browser tidak mendukung Speech Recognition.\nGunakan Chrome atau Edge.');
+    doStop();
+    return;
+  }
+
+  setDot('listening');
+  setStatus('Mendengarkan…');
+  document.getElementById('waveform').classList.add('wave-active');
+
+  recog = new SR();
+  recog.lang = 'id-ID';
+  recog.continuous = true;
+  recog.interimResults = true;
+
+  recog.onresult = (e) => {
+    let text = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      text += e.results[i][0].transcript;
+    }
+    text = text.trim();
+    if (!text) return;
+    document.getElementById('heardTxt').textContent = '🎙 ' + text;
+    matchSpeech(text);
+  };
+
+  recog.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    setStatus('Error mikrofon: ' + e.error);
+  };
+
+  recog.onend = () => {
+    if (running && mode === 'speech' && recog) {
+      try { recog.start(); } catch(err) {}
+    }
+  };
+
+  try { recog.start(); }
+  catch(err) { alert('Gagal akses mikrofon: ' + err.message); doStop(); }
+}
+
+function matchSpeech(heard) {
+  const heardW  = heard.toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+  if (!heardW.length) return;
+  const scriptW = wordTokens.map(norm);
+  const window  = Math.round(10 + sensitivity * 8);
+  const from    = curIdx;
+  const to      = Math.min(scriptW.length - 1, curIdx + window);
+  let bestPos   = -1;
+  let bestScore = 0;
+
+  for (let si = from; si <= to; si++) {
+    let matches = 0;
+    for (let hi = 0; hi < heardW.length && si + hi < scriptW.length; hi++) {
+      if (scriptW[si + hi] === heardW[hi]) matches++;
+    }
+    const score = matches / heardW.length;
+    if (score > bestScore && score >= 0.25) {
+      bestScore = score;
+      bestPos   = si + heardW.length - 1;
+    }
+  }
+
+  if (bestPos > curIdx) {
+    curIdx = Math.min(bestPos, wordTokens.length - 1);
+    highlightAll();
+    scrollToWord(curIdx);
+    updateProgress();
+  }
+}
+
+function norm(w) { return w.replace(/[^a-z0-9]/gi,'').toLowerCase(); }
+
+function scrollToWord(idx) {
+  const wrap    = document.getElementById('scrollWrap');
+  const el      = document.getElementById('w' + idx);
+  if (!el) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const elRect   = el.getBoundingClientRect();
+  // current top of element relative to scroll content
+  const elTopInContent = elRect.top - wrapRect.top + wrap.scrollTop;
+  // position word at 42% of viewport
+  wrap.scrollTop = Math.max(0, elTopInContent - wrap.clientHeight * 0.42);
+}
+
+// HIGHLIGHT
+function highlightAll() {
+  const all = document.querySelectorAll('.w');
+  all.forEach((el, i) => {
+    el.className = 'w';
+    if      (i < curIdx)   el.classList.add('spoken');
+    else if (i === curIdx) el.classList.add('current');
+    else                   el.classList.add('upcoming');
+  });
+}
+
+// PROGRESS
+function updateProgress() {
+  const pct = wordTokens.length > 1 ? Math.round((curIdx / (wordTokens.length - 1)) * 100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent  = pct + '%';
+}
+
+// STATUS / DOT
+function setStatus(msg) { document.getElementById('statusTxt').textContent = msg; }
+function setDot(type) {
+  const d = document.getElementById('dot');
+  d.className = 'status-dot';
+  if (type !== 'idle') d.classList.add(type);
+}
+</script>
+</body>
+</html>
